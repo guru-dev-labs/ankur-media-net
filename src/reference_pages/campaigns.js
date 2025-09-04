@@ -54,7 +54,7 @@ export default function Campaigns() {
 
       if (error) throw error;
       setRows(data || []);
-    } catch (err) {
+    } catch {
       setError("Failed to load campaigns: " + err.message);
     } finally {
       setLoading(false);

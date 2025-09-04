@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+// import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 // ---------- helpers ----------
@@ -106,7 +106,9 @@ const slidingWindowsDetect = (series, windowHours, op, threshold) => {
     if (triggered) {
       res.matches.push({
         window_start: new Date(windowSlice[0].ts).toISOString(),
-        window_end: new Date(windowSlice[windowSlice.length - 1].ts).toISOString(),
+        window_end: new Date(
+          windowSlice[windowSlice.length - 1].ts
+        ).toISOString(),
         value,
       });
     }
@@ -154,7 +156,10 @@ export default function Triggers() {
         setCampaigns([]);
         return;
       }
-      const mapped = (data || []).map((c) => ({ id: String(c.id), name: c.name }));
+      const mapped = (data || []).map((c) => ({
+        id: String(c.id),
+        name: c.name,
+      }));
       setCampaigns(mapped);
       if (!campaignId && mapped.length > 0) setCampaignId(mapped[0].id);
     } catch (e) {
@@ -182,7 +187,9 @@ export default function Triggers() {
       // load alert stats for these triggers
       const ids = (data || []).map((r) => r.id);
       if (ids.length > 0) {
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const thirtyDaysAgo = new Date(
+          Date.now() - 30 * 24 * 3600 * 1000
+        ).toISOString();
         const { data: alertsData, error: alertsErr } = await supabase
           .from("alerts")
           .select("trigger_id,created_at")
@@ -195,7 +202,10 @@ export default function Triggers() {
             const t = a.trigger_id;
             stats[t] = stats[t] || { count: 0, last: null };
             stats[t].count += 1;
-            if (!stats[t].last || new Date(a.created_at) > new Date(stats[t].last)) {
+            if (
+              !stats[t].last ||
+              new Date(a.created_at) > new Date(stats[t].last)
+            ) {
               stats[t].last = a.created_at;
             }
           });
@@ -249,7 +259,17 @@ export default function Triggers() {
         return;
       }
       const rows = data || [];
-      const series = rows.map((r) => metricValueFromRow({ impressions: r.impressions, clicks: r.clicks, spend: r.spend, revenue: r.revenue }, metricKey));
+      const series = rows.map((r) =>
+        metricValueFromRow(
+          {
+            impressions: r.impressions,
+            clicks: r.clicks,
+            spend: r.spend,
+            revenue: r.revenue,
+          },
+          metricKey
+        )
+      );
       const { median, iqr } = medianAndIqr(series);
       const absSuggestion = Math.max(0, median - iqr); // naive, but effective start
       const relOptions = [10, 20, 30, 50];
@@ -267,9 +287,18 @@ export default function Triggers() {
 
   // ---------- runSimulation ----------
   // simulate over last 30 days with sliding windows of duration (hours)
-  async function runSimulation({ campaign_id, metricKey, op, thresh, durationHours }) {
+  async function runSimulation({
+    campaign_id,
+    metricKey,
+    op,
+    thresh,
+    durationHours,
+  }) {
     if (!campaign_id || !metricKey) {
-      setMsg({ type: "error", text: "Campaign and metric required for simulation" });
+      setMsg({
+        type: "error",
+        text: "Campaign and metric required for simulation",
+      });
       return;
     }
     setSimulating(true);
@@ -286,7 +315,10 @@ export default function Triggers() {
 
       if (error) {
         console.error("simulation fetch error:", error);
-        setMsg({ type: "error", text: "Failed to fetch metrics for simulation" });
+        setMsg({
+          type: "error",
+          text: "Failed to fetch metrics for simulation",
+        });
         setSimulating(false);
         return;
       }
@@ -351,7 +383,10 @@ export default function Triggers() {
       };
 
       if (editingId) {
-        const { error } = await supabase.from("triggers").update(payload).eq("id", editingId);
+        const { error } = await supabase
+          .from("triggers")
+          .update(payload)
+          .eq("id", editingId);
         if (error) throw error;
         setMsg({ type: "success", text: "Trigger updated" });
       } else {
@@ -395,7 +430,10 @@ export default function Triggers() {
     if (!ok) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from("triggers").delete().eq("id", triggerId);
+      const { error } = await supabase
+        .from("triggers")
+        .delete()
+        .eq("id", triggerId);
       if (error) throw error;
       setMsg({ type: "success", text: "Trigger deleted" });
       if (editingId === triggerId) resetForm();
@@ -412,7 +450,10 @@ export default function Triggers() {
   async function toggleActive(trigger) {
     setLoading(true);
     try {
-      const { error } = await supabase.from("triggers").update({ active: !trigger.active }).eq("id", trigger.id);
+      const { error } = await supabase
+        .from("triggers")
+        .update({ active: !trigger.active })
+        .eq("id", trigger.id);
       if (error) throw error;
       setMsg({ type: "success", text: trigger.active ? "Paused" : "Resumed" });
       await loadTriggers();
@@ -450,10 +491,13 @@ export default function Triggers() {
         <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-2xl font-normal text-gray-900">Triggers</h1>
-            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">BETA</span>
+            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              BETA
+            </span>
           </div>
           <p className="text-sm text-gray-600 max-w-2xl">
-            Create rules to monitor CTR drops, spend overshoots, CPM spikes, or ROAS dips. Test with simulation before going live.
+            Create rules to monitor CTR drops, spend overshoots, CPM spikes, or
+            ROAS dips. Test with simulation before going live.
           </p>
         </div>
 
@@ -463,34 +507,65 @@ export default function Triggers() {
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="px-6 py-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-medium text-gray-900">{editingId ? "Edit trigger" : "Create trigger"}</h3>
+                  <h3 className="text-base font-medium text-gray-900">
+                    {editingId ? "Edit trigger" : "Create trigger"}
+                  </h3>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">Status:</span>
-                    <span className={`text-xs font-medium ${active ? "text-green-700" : "text-gray-500"}`}>{active ? "Active" : "Inactive"}</span>
+                    <span
+                      className={`text-xs font-medium ${
+                        active ? "text-green-700" : "text-gray-500"
+                      }`}
+                    >
+                      {active ? "Active" : "Inactive"}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div className="p-6 space-y-5">
                 {msg?.text && (
-                  <div className={`text-sm px-3 py-2 rounded-md border ${msg.type === "error" ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"}`}>
+                  <div
+                    className={`text-sm px-3 py-2 rounded-md border ${
+                      msg.type === "error"
+                        ? "bg-red-50 border-red-200 text-red-700"
+                        : "bg-green-50 border-green-200 text-green-700"
+                    }`}
+                  >
                     {msg.text}
                   </div>
                 )}
 
                 {/* Campaign */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-900">Campaign</Label>
-                  <Select value={campaignId} onValueChange={(v) => setCampaignId(String(v))}>
+                  <Label className="text-sm font-medium text-gray-900">
+                    Campaign
+                  </Label>
+                  <Select
+                    value={campaignId}
+                    onValueChange={(v) => setCampaignId(String(v))}
+                  >
                     <SelectTrigger className="h-9 border-gray-200">
-                      <SelectValue placeholder={campaigns.length ? "Choose campaign" : "No campaigns found"} />
+                      <SelectValue
+                        placeholder={
+                          campaigns.length
+                            ? "Choose campaign"
+                            : "No campaigns found"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent className="border-gray-200">
                       {campaigns.length === 0 ? (
                         <SelectItem value="">No campaigns</SelectItem>
                       ) : (
                         campaigns.map((c) => (
-                          <SelectItem key={c.id} value={c.id} className="text-sm">{c.name}</SelectItem>
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="text-sm"
+                          >
+                            {c.name}
+                          </SelectItem>
                         ))
                       )}
                     </SelectContent>
@@ -500,7 +575,9 @@ export default function Triggers() {
                 {/* Metric + Mode */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-900">Metric</Label>
+                    <Label className="text-sm font-medium text-gray-900">
+                      Metric
+                    </Label>
                     <Select value={metric} onValueChange={setMetric}>
                       <SelectTrigger className="h-9 border-gray-200">
                         <SelectValue placeholder="Select" />
@@ -515,7 +592,9 @@ export default function Triggers() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-900">Mode</Label>
+                    <Label className="text-sm font-medium text-gray-900">
+                      Mode
+                    </Label>
                     <Select value={mode} onValueChange={setMode}>
                       <SelectTrigger className="h-9 border-gray-200">
                         <SelectValue />
@@ -531,7 +610,9 @@ export default function Triggers() {
                 {/* Threshold + Duration */}
                 <div className="grid grid-cols-5 gap-3 items-end">
                   <div className="col-span-1 space-y-2">
-                    <Label className="text-sm font-medium text-gray-900">When</Label>
+                    <Label className="text-sm font-medium text-gray-900">
+                      When
+                    </Label>
                     <Select value={operator} onValueChange={setOperator}>
                       <SelectTrigger className="h-9 border-gray-200">
                         <SelectValue />
@@ -544,7 +625,9 @@ export default function Triggers() {
                   </div>
 
                   <div className="col-span-2 space-y-2">
-                    <Label className="text-sm font-medium text-gray-900">Threshold</Label>
+                    <Label className="text-sm font-medium text-gray-900">
+                      Threshold
+                    </Label>
                     <Input
                       value={threshold}
                       onChange={(e) => setThreshold(e.target.value)}
@@ -555,13 +638,17 @@ export default function Triggers() {
                   </div>
 
                   <div className="col-span-2 space-y-2">
-                    <Label className="text-sm font-medium text-gray-900">Duration</Label>
+                    <Label className="text-sm font-medium text-gray-900">
+                      Duration
+                    </Label>
                     <div className="flex items-center gap-1">
                       <Input
                         type="number"
                         min="1"
                         value={duration}
-                        onChange={(e) => setDuration(parseInt(e.target.value || "1"))}
+                        onChange={(e) =>
+                          setDuration(parseInt(e.target.value || "1"))
+                        }
                         className="h-9 border-gray-200"
                       />
                       <span className="text-xs text-gray-500">hours</span>
@@ -572,7 +659,13 @@ export default function Triggers() {
                 {/* Effective threshold for relative mode */}
                 {mode === "relative" && suggestion?.baseline != null && (
                   <div className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1">
-                    Effective threshold: {fmt(Math.max(0, suggestion.baseline * (1 - Number(threshold || 0) / 100)))}
+                    Effective threshold:{" "}
+                    {fmt(
+                      Math.max(
+                        0,
+                        suggestion.baseline * (1 - Number(threshold || 0) / 100)
+                      )
+                    )}
                   </div>
                 )}
 
@@ -581,20 +674,41 @@ export default function Triggers() {
                   <div className="bg-blue-50/50 rounded-lg border border-blue-200/50 p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                      <span className="text-sm font-medium text-blue-900">Smart suggestions</span>
+                      <span className="text-sm font-medium text-blue-900">
+                        Smart suggestions
+                      </span>
                     </div>
 
                     <div className="text-xs text-blue-800 space-y-1">
-                      <div>7-day baseline: <strong>{fmt(suggestion.baseline)}</strong></div>
-                      <div>Variance (IQR): <strong>{fmt(suggestion.spread)}</strong></div>
+                      <div>
+                        7-day baseline:{" "}
+                        <strong>{fmt(suggestion.baseline)}</strong>
+                      </div>
+                      <div>
+                        Variance (IQR):{" "}
+                        <strong>{fmt(suggestion.spread)}</strong>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
                       {mode === "absolute" ? (
-                        <button onClick={() => setThreshold(String(suggestion.absSuggestion))} className="text-xs px-2 py-1 bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors">Use {suggestion.absSuggestion}</button>
+                        <button
+                          onClick={() =>
+                            setThreshold(String(suggestion.absSuggestion))
+                          }
+                          className="text-xs px-2 py-1 bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors"
+                        >
+                          Use {suggestion.absSuggestion}
+                        </button>
                       ) : (
                         suggestion.relOptions.map((o) => (
-                          <button key={o} onClick={() => setThreshold(String(o))} className="text-xs px-2 py-1 bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors">{o}% drop</button>
+                          <button
+                            key={o}
+                            onClick={() => setThreshold(String(o))}
+                            className="text-xs px-2 py-1 bg-white border border-blue-200 text-blue-700 rounded hover:bg-blue-50 transition-colors"
+                          >
+                            {o}% drop
+                          </button>
                         ))
                       )}
                     </div>
@@ -605,23 +719,50 @@ export default function Triggers() {
 
                 {/* advanced */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">Advanced settings</h4>
+                  <h4 className="text-sm font-medium text-gray-900">
+                    Advanced settings
+                  </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm text-gray-700">Severity</Label>
                       <Select value={severity} onValueChange={setSeverity}>
-                        <SelectTrigger className="h-9 border-gray-200"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9 border-gray-200">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent className="border-gray-200">
-                          <SelectItem value="info"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div>Info</div></SelectItem>
-                          <SelectItem value="warning"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500"></div>Warning</div></SelectItem>
-                          <SelectItem value="critical"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500"></div>Critical</div></SelectItem>
+                          <SelectItem value="info">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              Info
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="warning">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                              Warning
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="critical">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                              Critical
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm text-gray-700">Cooldown</Label>
                       <div className="flex items-center gap-1">
-                        <Input type="number" min="0" value={suppressionHours} onChange={(e) => setSuppressionHours(parseInt(e.target.value || "0"))} className="h-9 border-gray-200" />
+                        <Input
+                          type="number"
+                          min="0"
+                          value={suppressionHours}
+                          onChange={(e) =>
+                            setSuppressionHours(parseInt(e.target.value || "0"))
+                          }
+                          className="h-9 border-gray-200"
+                        />
                         <span className="text-xs text-gray-500">hours</span>
                       </div>
                     </div>
@@ -629,20 +770,40 @@ export default function Triggers() {
 
                   <div className="space-y-2">
                     <Label className="text-sm text-gray-700">Rule name</Label>
-                    <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional descriptive name" className="h-9 border-gray-200" />
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Optional descriptive name"
+                      className="h-9 border-gray-200"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm text-gray-700">Custom message</Label>
-                    <Input value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} placeholder="Optional context for alerts" className="h-9 border-gray-200" />
+                    <Label className="text-sm text-gray-700">
+                      Custom message
+                    </Label>
+                    <Input
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      placeholder="Optional context for alerts"
+                      className="h-9 border-gray-200"
+                    />
                   </div>
 
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <Label className="text-sm font-medium text-gray-900">Enable trigger</Label>
-                      <p className="text-xs text-gray-500 mt-1">Automatically send alerts when conditions are met</p>
+                      <Label className="text-sm font-medium text-gray-900">
+                        Enable trigger
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Automatically send alerts when conditions are met
+                      </p>
                     </div>
-                    <Switch checked={active} onCheckedChange={setActive} className="data-[state=checked]:bg-blue-600" />
+                    <Switch
+                      checked={active}
+                      onCheckedChange={setActive}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
                   </div>
                 </div>
 
@@ -650,20 +811,51 @@ export default function Triggers() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-3">
-                  <Button onClick={addOrUpdateTrigger} disabled={loading} className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm">
+                  <Button
+                    onClick={addOrUpdateTrigger}
+                    disabled={loading}
+                    className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm"
+                  >
                     {editingId ? "Save changes" : "Create trigger"}
                   </Button>
 
-                  <Button variant="outline" onClick={() => { resetForm(); setMsg(null); }} className="h-9 px-4 text-sm font-medium border-gray-200 text-gray-700 hover:bg-gray-50">Reset</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      resetForm();
+                      setMsg(null);
+                    }}
+                    className="h-9 px-4 text-sm font-medium border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
+                    Reset
+                  </Button>
 
-                  <Button variant="outline" onClick={async () => {
-                    if (!campaignId || threshold === "") return setMsg({ type: "error", text: "Campaign and threshold required" });
-                    let t = Number(threshold);
-                    if (mode === "relative" && suggestion) {
-                      t = Math.max(0, suggestion.baseline * (1 - Number(threshold) / 100));
-                    }
-                    await runSimulation({ campaign_id: campaignId, metricKey: metric, op: operator, thresh: t, durationHours: duration });
-                  }} disabled={simulating} className="h-9 px-4 text-sm font-medium border-gray-200 text-gray-700 hover:bg-gray-50">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      if (!campaignId || threshold === "")
+                        return setMsg({
+                          type: "error",
+                          text: "Campaign and threshold required",
+                        });
+                      let t = Number(threshold);
+                      if (mode === "relative" && suggestion) {
+                        t = Math.max(
+                          0,
+                          suggestion.baseline * (1 - Number(threshold) / 100)
+                        );
+                      }
+                      await runSimulation({
+                        campaign_id: campaignId,
+                        metricKey: metric,
+                        op: operator,
+                        thresh: t,
+                        durationHours: duration,
+                      });
+                    }}
+                    disabled={simulating}
+                    className="h-9 px-4 text-sm font-medium border-gray-200 text-gray-700 hover:bg-gray-50"
+                  >
                     {simulating ? "Simulating..." : "Test run"}
                   </Button>
                 </div>
@@ -674,7 +866,9 @@ export default function Triggers() {
             {(simulationResult || simulating) && (
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="px-6 py-4 border-b border-gray-100">
-                  <h3 className="text-base font-medium text-gray-900">Simulation (30 days)</h3>
+                  <h3 className="text-base font-medium text-gray-900">
+                    Simulation (30 days)
+                  </h3>
                 </div>
 
                 <div className="p-6">
@@ -687,23 +881,41 @@ export default function Triggers() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center">
-                          <div className="text-2xl font-normal text-gray-900">{simulationResult.totalWindows}</div>
-                          <div className="text-xs text-gray-500">Windows checked</div>
+                          <div className="text-2xl font-normal text-gray-900">
+                            {simulationResult.totalWindows}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Windows checked
+                          </div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-normal text-gray-900">{simulationResult.expectedAlerts}</div>
-                          <div className="text-xs text-gray-500">Expected alerts</div>
+                          <div className="text-2xl font-normal text-gray-900">
+                            {simulationResult.expectedAlerts}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Expected alerts
+                          </div>
                         </div>
                       </div>
 
                       {simulationResult.sample.length > 0 && (
                         <div className="space-y-3">
-                          <div className="text-sm font-medium text-gray-900">Sample matches</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            Sample matches
+                          </div>
                           <div className="space-y-2 max-h-48 overflow-y-auto">
                             {simulationResult.sample.map((s, idx) => (
-                              <div key={idx} className="text-xs p-2 bg-gray-50 rounded border">
-                                <div className="font-medium text-gray-900">{friendlyDate(s.window_start)} → {friendlyDate(s.window_end)}</div>
-                                <div className="text-gray-600">Value: {fmt(s.value)}</div>
+                              <div
+                                key={idx}
+                                className="text-xs p-2 bg-gray-50 rounded border"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  {friendlyDate(s.window_start)} →{" "}
+                                  {friendlyDate(s.window_end)}
+                                </div>
+                                <div className="text-gray-600">
+                                  Value: {fmt(s.value)}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -720,52 +932,114 @@ export default function Triggers() {
           <div className="lg:col-span-7">
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-base font-medium text-gray-900">Active triggers</h3>
-                <span className="text-xs text-gray-500">{rows.length} total</span>
+                <h3 className="text-base font-medium text-gray-900">
+                  Active triggers
+                </h3>
+                <span className="text-xs text-gray-500">
+                  {rows.length} total
+                </span>
               </div>
 
               <div className="divide-y divide-gray-100">
                 {rows.length === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      <svg
+                        className="w-6 h-6 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
                       </svg>
                     </div>
-                    <p className="text-sm text-gray-500">No triggers created yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Create your first trigger using the form</p>
+                    <p className="text-sm text-gray-500">
+                      No triggers created yet
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Create your first trigger using the form
+                    </p>
                   </div>
                 ) : (
                   rows.map((r) => (
-                    <div key={r.id} className="px-6 py-4 hover:bg-gray-50/50 transition-colors flex items-start justify-between gap-4">
+                    <div
+                      key={r.id}
+                      className="px-6 py-4 hover:bg-gray-50/50 transition-colors flex items-start justify-between gap-4"
+                    >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">{r.name || `${r.metric} ${r.operator} ${fmt(r.threshold)}`}</h4>
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {r.name ||
+                              `${r.metric} ${r.operator} ${fmt(r.threshold)}`}
+                          </h4>
 
                           <div className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${r.severity === "critical" ? "bg-red-500" : r.severity === "warning" ? "bg-amber-500" : "bg-blue-500"}`}></div>
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                r.severity === "critical"
+                                  ? "bg-red-500"
+                                  : r.severity === "warning"
+                                  ? "bg-amber-500"
+                                  : "bg-blue-500"
+                              }`}
+                            ></div>
 
                             {r.active ? (
-                              <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">LIVE</span>
+                              <span className="text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                                LIVE
+                              </span>
                             ) : (
-                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">PAUSED</span>
+                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                                PAUSED
+                              </span>
                             )}
                           </div>
                         </div>
 
                         <div className="text-xs text-gray-600 space-y-1">
-                          <div>Condition: {r.metric} {r.operator} {fmt(r.threshold)} for {r.duration_hours}h {typeof r.suppression_hours === "number" && r.suppression_hours > 0 && `• ${r.suppression_hours}h cooldown`}</div>
+                          <div>
+                            Condition: {r.metric} {r.operator}{" "}
+                            {fmt(r.threshold)} for {r.duration_hours}h{" "}
+                            {typeof r.suppression_hours === "number" &&
+                              r.suppression_hours > 0 &&
+                              `• ${r.suppression_hours}h cooldown`}
+                          </div>
                           <div className="flex items-center gap-4 text-gray-500">
-                            <span>Alerts (30d): <strong>{alertStats[r.id]?.count || 0}</strong></span>
-                            <span>Last: {friendlyDate(alertStats[r.id]?.last)}</span>
+                            <span>
+                              Alerts (30d):{" "}
+                              <strong>{alertStats[r.id]?.count || 0}</strong>
+                            </span>
+                            <span>
+                              Last: {friendlyDate(alertStats[r.id]?.last)}
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => editTrigger(r)} className="text-xs px-2 py-1 text-blue-700 hover:bg-blue-50 rounded transition-colors">Edit</button>
-                        <button onClick={() => toggleActive(r)} className="text-xs px-2 py-1 text-gray-700 hover:bg-gray-100 rounded transition-colors">{r.active ? "Pause" : "Resume"}</button>
-                        <button onClick={() => deleteTrigger(r.id)} className="text-xs px-2 py-1 text-red-700 hover:bg-red-50 rounded transition-colors">Delete</button>
+                        <button
+                          onClick={() => editTrigger(r)}
+                          className="text-xs px-2 py-1 text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleActive(r)}
+                          className="text-xs px-2 py-1 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          {r.active ? "Pause" : "Resume"}
+                        </button>
+                        <button
+                          onClick={() => deleteTrigger(r.id)}
+                          className="text-xs px-2 py-1 text-red-700 hover:bg-red-50 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   ))
@@ -775,12 +1049,37 @@ export default function Triggers() {
 
             {/* Pro tips */}
             <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-6">
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Pro tips</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-3">
+                Pro tips
+              </h4>
               <div className="space-y-2 text-xs text-gray-600">
-                <div className="flex gap-2"><span className="text-gray-400">•</span><span>Test rules with simulation before activating to avoid noise</span></div>
-                <div className="flex gap-2"><span className="text-gray-400">•</span><span>Low-volume campaigns work better with longer windows (6-24h) and relative thresholds</span></div>
-                <div className="flex gap-2"><span className="text-gray-400">•</span><span>Set cooldowns (4+ hours) to prevent alert storms during incidents</span></div>
-                <div className="flex gap-2"><span className="text-gray-400">•</span><span>Review and adjust thresholds weekly based on performance data</span></div>
+                <div className="flex gap-2">
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    Test rules with simulation before activating to avoid noise
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    Low-volume campaigns work better with longer windows (6-24h)
+                    and relative thresholds
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    Set cooldowns (4+ hours) to prevent alert storms during
+                    incidents
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    Review and adjust thresholds weekly based on performance
+                    data
+                  </span>
+                </div>
               </div>
             </div>
           </div>

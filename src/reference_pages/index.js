@@ -22,7 +22,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   async function fetchData() {
     setLoading(true);
@@ -482,7 +482,7 @@ export default function Home() {
                       CTR Alert Triggered
                     </p>
                     <p className="text-sm text-orange-600">
-                      Campaign "Summer Sale" CTR dropped below 2.5%
+                      Campaign &quot;Summer Sale&quot; CTR dropped below 2.5%
                     </p>
                   </div>
                   <span className="text-xs text-orange-600">1 hour ago</span>
@@ -495,7 +495,7 @@ export default function Home() {
                       New Campaign Added
                     </p>
                     <p className="text-sm text-blue-600">
-                      Campaign "Q4 Launch" added to monitoring
+                      Campaign &quot;Q4 Launch&quot; added to monitoring
                     </p>
                   </div>
                   <span className="text-xs text-blue-600">3 hours ago</span>
