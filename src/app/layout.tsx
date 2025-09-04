@@ -28,6 +28,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <footer className="mt-12 pt-8 border-t text-center text-sm text-gray-500">
+          Made with ♥ by{" "}
+          <a
+            href="https://www.linkedin.com/in/ankuraagarwal/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-blue-600 hover:underline"
+          >
+            Ankur
+          </a>
+        </footer>
       </body>
     </html>
   );
