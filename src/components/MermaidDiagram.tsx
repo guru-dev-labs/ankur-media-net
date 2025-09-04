@@ -1,26 +1,28 @@
 "use client";
-import { useEffect, useRef } from "react";
+
+import React, { useEffect } from "react";
 import mermaid from "mermaid";
+
+// Initialize Mermaid.js for client-side rendering
+if (typeof window !== "undefined") {
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "neutral",
+    securityLevel: "loose",
+  });
+}
 
 interface MermaidDiagramProps {
   chart: string;
 }
 
-export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
+const MermaidDiagram = ({ chart }: MermaidDiagramProps) => {
   useEffect(() => {
-    if (ref.current) {
-      mermaid.initialize({ startOnLoad: true, theme: "default" });
-      try {
-        ref.current.innerHTML = `<div class="mermaid">${chart}</div>`;
-        mermaid.init(undefined, ref.current);
-      } catch (e) {
-        console.error("Mermaid render error:", e);
-        ref.current.innerHTML = `<pre style="color:red">Mermaid render error</pre>`;
-      }
-    }
+    // Rerender the diagram when the chart data changes
+    mermaid.run();
   }, [chart]);
 
-  return <div ref={ref} />;
-}
+  return <div className="mermaid">{chart}</div>;
+};
+
+export default MermaidDiagram;

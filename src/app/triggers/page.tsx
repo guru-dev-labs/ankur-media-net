@@ -1,7 +1,37 @@
 "use client";
-import DocumentationNav from "../../components/DocumentationNav";
+
+import DocumentationNav from "@/components/DocumentationNav";
 import { supabase } from "../../lib/supabaseClient";
 import { useEffect, useState, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { PlusCircle, List, AlertCircle, Zap, Loader2 } from "lucide-react";
 
 type Campaign = {
   id: string;
@@ -18,18 +48,37 @@ type Trigger = {
   name?: string;
   active: boolean;
   created_at: string;
-  // This property comes from the Supabase JOIN
   campaigns: { name: string } | null;
 };
 
 const INITIAL_FORM_STATE = {
   campaign_id: "",
-  metric: "",
+  metric: "CTR",
   operator: ">",
   threshold: 0,
   duration_hours: 1,
   name: "",
 };
+
+const LoadingSkeleton = () => (
+  <div className="space-y-2">
+    <Skeleton className="h-12 w-full" />
+    <Skeleton className="h-12 w-full" />
+    <Skeleton className="h-12 w-full" />
+  </div>
+);
+
+const EmptyState = () => (
+  <div className="text-center py-12 px-6">
+    <Zap className="mx-auto h-12 w-12 text-gray-400" />
+    <h3 className="mt-2 text-lg font-medium text-gray-900">
+      No triggers found
+    </h3>
+    <p className="mt-1 text-sm text-gray-500">
+      Create your first trigger to start monitoring campaign performance.
+    </p>
+  </div>
+);
 
 export default function Page() {
   const [triggers, setTriggers] = useState<Trigger[]>([]);
@@ -38,15 +87,12 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [formState, setFormState] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  // Tracks which trigger is being updated/deleted to disable buttons
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  // This function now loads all campaigns and the list of triggers.
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    // 1. Fetch all available campaigns to populate the dropdown.
     const { data: campaignData, error: campaignError } = await supabase
       .from("campaigns")
       .select("id, name")
@@ -61,7 +107,6 @@ export default function Page() {
     const fetchedCampaigns = campaignData || [];
     setCampaigns(fetchedCampaigns);
 
-    // If campaigns exist, pre-select the first one in the form.
     if (fetchedCampaigns.length > 0) {
       setFormState((prevState) => ({
         ...prevState,
@@ -69,7 +114,6 @@ export default function Page() {
       }));
     }
 
-    // 2. Fetch existing triggers and join the campaign name for display.
     const { data: triggersData, error: triggersError } = await supabase
       .from("triggers")
       .select(
@@ -80,12 +124,20 @@ export default function Page() {
     if (triggersError) {
       setError(`Failed to load triggers: ${triggersError.message}`);
     } else {
-      setTriggers(
-        (triggersData || []).map((trigger) => ({
-          ...trigger,
-          campaigns: trigger.campaigns?.[0] || null,
-        }))
-      );
+      // Map triggersData to ensure campaigns property matches Trigger type
+      const mappedTriggers = (triggersData || []).map((trigger: unknown) => {
+        const t = trigger as Trigger & {
+          campaigns: { name: string }[] | { name: string } | null;
+        };
+        return {
+          ...t,
+          campaigns:
+            t.campaigns && Array.isArray(t.campaigns)
+              ? t.campaigns[0] || null
+              : t.campaigns || null,
+        };
+      });
+      setTriggers(mappedTriggers);
     }
     setLoading(false);
   }, []);
@@ -99,7 +151,6 @@ export default function Page() {
     setIsSubmitting(true);
     setError(null);
 
-    // The campaign_id is now part of the form state and is required.
     if (!formState.campaign_id) {
       setError("Please select a campaign.");
       setIsSubmitting(false);
@@ -114,12 +165,10 @@ export default function Page() {
     if (insertError) {
       setError(insertError.message);
     } else {
-      // Reset form, but keep the first campaign selected for convenience.
       setFormState({
         ...INITIAL_FORM_STATE,
         campaign_id: campaigns[0]?.id || "",
       });
-      // Re-fetch triggers to show the new one at the top of the list.
       await loadInitialData();
     }
     setIsSubmitting(false);
@@ -140,7 +189,6 @@ export default function Page() {
     if (deleteError) {
       setError(deleteError.message);
     } else {
-      // Optimistically update UI by removing the trigger from state
       setTriggers((prevTriggers) => prevTriggers.filter((t) => t.id !== id));
     }
     setActionInProgress(null);
@@ -153,280 +201,283 @@ export default function Page() {
     const { data, error: updateError } = await supabase
       .from("triggers")
       .update({ active: !currentStatus })
-      .match({ id })
+      .eq("id", id)
       .select()
-      .single(); // .single() ensures we get the updated row back
+      .single();
 
     if (updateError) {
       setError(updateError.message);
     } else if (data) {
-      // Optimistically update UI with the new status
+      // Must re-fetch campaign name as it's not returned on update
+      const updatedTrigger = {
+        ...data,
+        campaigns: triggers.find((t) => t.id === id)?.campaigns || null,
+      };
       setTriggers((prevTriggers) =>
-        prevTriggers.map((t) => (t.id === id ? data : t))
+        prevTriggers.map((t) => (t.id === id ? updatedTrigger : t))
       );
     }
     setActionInProgress(null);
   }
 
-  const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormState((prevState) => ({
       ...prevState,
       [name]:
-        name === "campaign_id"
-          ? value
-          : name === "threshold" || name === "duration_hours"
+        name === "threshold" || name === "duration_hours"
           ? Number(value)
           : value,
     }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormState((prevState) => ({ ...prevState, [name]: value }));
+  };
+
   return (
-    <main>
+    <main className="bg-slate-50 min-h-screen">
       <DocumentationNav />
-      <section className="flex-1 p-8">
-        <h1 className="text-2xl font-bold mb-4">Triggers</h1>
-        <div className="prose prose-stone max-w-none mb-6">
-          <p>
-            Triggers are automated rules that monitor your campaign metrics.
-            When a metric crosses a specified threshold for a certain duration,
-            an action can be initiated (e.g., sending a notification, pausing a
-            campaign). This helps you manage your campaigns proactively.
+      <section className="p-4 md:p-8 space-y-8 max-w-5xl mx-auto">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+            Trigger Management
+          </h1>
+          <p className="text-lg text-gray-600">
+            Create and manage automated rules to proactively monitor your
+            campaign performance.
           </p>
         </div>
 
-        <fieldset
-          className="border p-4 rounded-md mb-8 disabled:opacity-60"
-          disabled={isSubmitting || loading}
-        >
-          <legend className="text-lg font-semibold px-2">
-            Add New Trigger
-          </legend>
-          {campaigns.length === 0 && !loading && (
-            <div className="text-center text-yellow-800 bg-yellow-50 p-3 rounded-md border border-yellow-200">
-              You must create a campaign before you can add a trigger.
-            </div>
-          )}
-          <form
-            className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end mt-4"
-            onSubmit={handleAddTrigger}
-          >
-            <div className="flex flex-col">
-              <label htmlFor="campaign_id" className="text-sm font-medium mb-1">
-                Campaign
-              </label>
-              <select
-                id="campaign_id"
-                name="campaign_id"
-                value={formState.campaign_id}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-                required
-                disabled={campaigns.length === 0}
-              >
-                {campaigns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="metric" className="text-sm font-medium mb-1">
-                Metric
-              </label>
-              <input
-                id="metric"
-                name="metric"
-                type="text"
-                placeholder="e.g. CTR, Spend"
-                value={formState.metric}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-                required
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="operator" className="text-sm font-medium mb-1">
-                Operator
-              </label>
-              <select
-                id="operator"
-                name="operator"
-                value={formState.operator}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-                required
-              >
-                <option value=">">&gt; (Greater Than)</option>
-                <option value="<">&lt; (Less Than)</option>
-              </select>
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="threshold" className="text-sm font-medium mb-1">
-                Threshold
-              </label>
-              <input
-                id="threshold"
-                name="threshold"
-                type="number"
-                placeholder="e.g. 0.5"
-                value={formState.threshold}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-                required
-              />
-            </div>
-            <div className="flex flex-col">
-              <label
-                htmlFor="duration_hours"
-                className="text-sm font-medium mb-1"
-              >
-                Duration (hrs)
-              </label>
-              <input
-                id="duration_hours"
-                name="duration_hours"
-                type="number"
-                placeholder="e.g. 24"
-                value={formState.duration_hours}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-                min={1}
-                required
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor="name" className="text-sm font-medium mb-1">
-                Rule Name (Optional)
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="e.g. High Spend Alert"
-                value={formState.name}
-                onChange={handleFormChange}
-                className="border px-2 py-1.5 rounded-md shadow-sm"
-              />
-            </div>
-            <div className="flex flex-col">
-              <button
-                type="submit"
-                className="bg-blue-600 text-white px-4 py-1.5 rounded-md shadow-sm hover:bg-blue-700 disabled:bg-gray-400 w-full"
-                disabled={isSubmitting || campaigns.length === 0}
-              >
-                {isSubmitting ? "Adding..." : "Add Trigger"}
-              </button>
-            </div>
-          </form>
-        </fieldset>
-
         {error && (
-          <div
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
-            role="alert"
-          >
-            <strong className="font-bold">Error:</strong>
-            <span className="block sm:inline ml-2">{error}</span>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>An Error Occurred</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        {loading ? (
-          <p>Loading triggers...</p>
-        ) : triggers.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">
-            No triggers found. Add one using the form above to get started.
-          </p>
-        ) : (
-          <table className="min-w-full border-collapse border border-gray-300 shadow-sm">
-            <thead className="bg-gray-50">
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Campaign
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Name
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Condition
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Duration
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Status
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Created At
-                </th>
-                <th className="px-4 py-2 border text-left text-sm font-semibold text-gray-600">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {triggers.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 border font-medium">
-                    {t.campaigns?.name || (
-                      <span className="text-gray-400">Unknown</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 border">
-                    {t.name || <span className="text-gray-400">N/A</span>}
-                  </td>
-                  <td className="px-4 py-3 border font-mono">{`${t.metric} ${t.operator} ${t.threshold}`}</td>
-                  <td className="px-4 py-3 border">{t.duration_hours} hours</td>
-                  <td className="px-4 py-3 border">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        t.active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <PlusCircle size={20} />
+              Add New Trigger
+            </CardTitle>
+            <CardDescription>
+              Define a condition that, when met, will generate an alert.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {campaigns.length === 0 && !loading && (
+              <Alert
+                variant="default"
+                className="bg-yellow-50 border-yellow-200 text-yellow-800"
+              >
+                <AlertCircle className="h-4 w-4 !text-yellow-700" />
+                <AlertTitle>No Campaigns Found</AlertTitle>
+                <AlertDescription>
+                  You must create a campaign before you can add a trigger.
+                </AlertDescription>
+              </Alert>
+            )}
+            <form className="mt-4" onSubmit={handleAddTrigger}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                <div className="space-y-2">
+                  <Label htmlFor="campaign_id">Campaign</Label>
+                  <Select
+                    name="campaign_id"
+                    required
+                    value={formState.campaign_id}
+                    onValueChange={(value) =>
+                      handleSelectChange("campaign_id", value)
+                    }
+                    disabled={campaigns.length === 0}
+                  >
+                    <SelectTrigger id="campaign_id">
+                      <SelectValue placeholder="Select a campaign..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campaigns.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="metric">Metric</Label>
+                  <Input
+                    id="metric"
+                    name="metric"
+                    type="text"
+                    placeholder="e.g. CTR, Spend"
+                    value={formState.metric}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="operator">Condition</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      name="operator"
+                      required
+                      value={formState.operator}
+                      onValueChange={(value) =>
+                        handleSelectChange("operator", value)
+                      }
                     >
-                      {t.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 border text-sm text-gray-500">
-                    {new Date(t.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 border text-sm font-medium">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleToggleActive(t.id, t.active)}
-                        disabled={actionInProgress === `toggle-${t.id}`}
-                        className={`px-3 py-1 rounded text-white text-xs ${
-                          t.active
-                            ? "bg-yellow-500 hover:bg-yellow-600"
-                            : "bg-green-500 hover:bg-green-600"
-                        } disabled:bg-gray-400`}
-                      >
-                        {actionInProgress === `toggle-${t.id}`
-                          ? "..."
-                          : t.active
-                          ? "Deactivate"
-                          : "Activate"}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTrigger(t.id)}
-                        disabled={actionInProgress === `delete-${t.id}`}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs disabled:bg-gray-400"
-                      >
-                        {actionInProgress === `delete-${t.id}`
-                          ? "..."
-                          : "Delete"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value=">">Greater Than (&gt;)</SelectItem>
+                        <SelectItem value="<">Less Than (&lt;)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="threshold"
+                      name="threshold"
+                      type="number"
+                      placeholder="Value"
+                      value={formState.threshold}
+                      onChange={handleFormChange}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration_hours">Duration (hrs)</Label>
+                  <Input
+                    id="duration_hours"
+                    name="duration_hours"
+                    type="number"
+                    placeholder="e.g. 24"
+                    value={formState.duration_hours}
+                    onChange={handleFormChange}
+                    min={1}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Rule Name (Optional)</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    type="text"
+                    placeholder="e.g. High Spend Alert"
+                    value={formState.name}
+                    onChange={handleFormChange}
+                  />
+                </div>
+                <div className="space-y-2 self-end">
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting || campaigns.length === 0}
+                  >
+                    {isSubmitting && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {isSubmitting ? "Adding..." : "Add Trigger"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <List size={20} />
+              Your Triggers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <LoadingSkeleton />
+            ) : triggers.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {triggers.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>
+                          <Badge
+                            variant={t.active ? "default" : "secondary"}
+                            className={
+                              t.active
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }
+                          >
+                            {t.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">
+                            {t.campaigns?.name || (
+                              <span className="text-gray-400">Unknown</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {t.name || "Untitled Rule"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="text-sm">{`${t.metric} ${t.operator} ${t.threshold}`}</code>{" "}
+                          for {t.duration_hours}h
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleActive(t.id, t.active)}
+                              disabled={actionInProgress === `toggle-${t.id}`}
+                            >
+                              {actionInProgress === `toggle-${t.id}` ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : t.active ? (
+                                "Deactivate"
+                              ) : (
+                                "Activate"
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteTrigger(t.id)}
+                              disabled={actionInProgress === `delete-${t.id}`}
+                            >
+                              {actionInProgress === `delete-${t.id}` ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Delete"
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </section>
     </main>
   );
